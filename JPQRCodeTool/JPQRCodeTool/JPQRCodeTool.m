@@ -1,14 +1,17 @@
-//
-//  JPQRCodeTool.m
-//  JPQRCodeTool
-//
-//  Created by 尹久盼 on 17/3/25.
-//  Copyright © 2017年 尹久盼. All rights reserved.
-//
+/*
+ * This file is part of the JPQRCodeTool package.
+ * (c) NewPan <13246884282@163.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ *
+ * Click https://github.com/Chris-Pan
+ * or http://www.jianshu.com/users/e2f2d779c022/latest_articles to contact me.
+ */
 
 #import "JPQRCodeTool.h"
 
-struct JPIntPixel {
+struct JPPixel {
     UInt8 red;
     UInt8 green;
     UInt8 blue;
@@ -19,41 +22,59 @@ const CGFloat JPQRCodeDrawPointMargin = 2;
 
 @implementation JPQRCodeTool
 
-+(UIImage *)generateCodeForString:(NSString *)str withSizeType:(kQRCodeSizeType)sizeType drawType:(kQRCodeDrawType)drawType gradientType:(kQRCodeGradientType)gradientType gradientColors:(NSArray<UIColor *> *)colors iconsPath:(NSString *)iconPath{
++(nullable UIImage *)generateCodeForString:(nonnull NSString *)str withCorrectionLevel:(kQRCodeCorrectionLevel)corLevel SizeType:(kQRCodeSizeType)sizeType customSizeDelta:(CGFloat)cusDelta drawType:(kQRCodeDrawType)drawType gradientType:(kQRCodeGradientType)gradientType gradientColors:(nullable NSArray<UIColor *> *)colors{
     if (str.length==0)
         return nil;
     
     @autoreleasepool {
-        CIImage *originalImg = [self createOriginalCIImageWithString:str];
+        CIImage *originalImg = [self createOriginalCIImageWithString:str withCorrectionLevel:corLevel];
         NSArray<NSArray *> *pixels = [self getPixelsWithCIImage:originalImg];
         NSArray<NSArray *> *codePoints = [self handlePointsShouldDisplayCodeForArr:pixels];
         
-        CGRect extent = originalImg.extent;
+        CGFloat extent = originalImg.extent.size.width; // 对应纠错率二维码矩阵点数宽度
         CGFloat size = 0;
         switch (sizeType) {
             case kQRCodeSizeTypeSmall:
-                size = 10*extent.size.width;
+                size = 10*extent;
                 break;
             case kQRCodeSizeTypeNormal:
-                size = 20*extent.size.width;
+                size = 20*extent;
                 break;
             case kQRCodeSizeTypeBig:
-                size = 30*extent.size.width;
+                size = 30*extent;
                 break;
-            default:
+            case kQRCodeSizeTypeCustom:
+                size = cusDelta*extent;
                 break;
         }
-        return [self drawWithCodePoints:codePoints andSize:size gradientColors:colors drawType:drawType gradientType:gradientType iconsPath:iconPath];
+        return [self drawWithCodePoints:codePoints andSize:size gradientColors:colors drawType:drawType gradientType:gradientType];
     }
 }
 
 // 创建原始二维码
-+(CIImage *)createOriginalCIImageWithString:(NSString *)str{
++(CIImage *)createOriginalCIImageWithString:(NSString *)str withCorrectionLevel:(kQRCodeCorrectionLevel)corLevel{
     CIFilter *filter = [CIFilter filterWithName:@"CIQRCodeGenerator"];
     [filter setDefaults];
     NSData *data = [str dataUsingEncoding:NSUTF8StringEncoding];
     [filter setValue:data forKeyPath:@"inputMessage"];
-    [filter setValue:@"H" forKey:@"inputCorrectionLevel"];
+    
+    NSString *corLevelStr = nil;
+    switch (corLevel) {
+        case kQRCodeCorrectionLevelLow:
+            corLevelStr = @"L";
+            break;
+        case kQRCodeCorrectionLevelNormal:
+            corLevelStr = @"M";
+            break;
+        case kQRCodeCorrectionLevelSuperior:
+            corLevelStr = @"Q";
+            break;
+        case kQRCodeCorrectionLevelHight:
+            corLevelStr = @"H";
+            break;
+    }
+    [filter setValue:corLevelStr forKey:@"inputCorrectionLevel"];
+    
     CIImage *outputImage = [filter outputImage];
     return outputImage;
 }
@@ -104,12 +125,12 @@ const CGFloat JPQRCodeDrawPointMargin = 2;
                 CGFloat red = (CGFloat)rawData[byteIndex];
                 CGFloat green = (CGFloat)rawData[byteIndex + 1];
                 CGFloat blue = (CGFloat)rawData[byteIndex + 2];
-                struct JPIntPixel pixel;
+                struct JPPixel pixel;
                 pixel.alpha = alpha;
                 pixel.red = red;
                 pixel.green = green;
                 pixel.blue = blue;
-                NSValue *value = [NSValue valueWithBytes:&pixel objCType:@encode(struct JPIntPixel)];
+                NSValue *value = [NSValue valueWithBytes:&pixel objCType:@encode(struct JPPixel)];
                 [tepArrM addObject:value];
                 byteIndex += bytesPerPixel;
             }
@@ -128,7 +149,7 @@ const CGFloat JPQRCodeDrawPointMargin = 2;
         for (int indexX = 0; indexX < pixels[indexY].count; indexX++) {
             @autoreleasepool {
                 NSValue *value = pixels[indexY][indexX];
-                struct JPIntPixel pixel;
+                struct JPPixel pixel;
                 [value getValue:&pixel];
                 BOOL shouldDisplay = pixel.red == 0 && pixel.green == 0 && pixel.blue == 0;
                 [tepArrM addObject:@(shouldDisplay)];
@@ -139,63 +160,19 @@ const CGFloat JPQRCodeDrawPointMargin = 2;
     return [results copy];
 }
 
-+(UIImage *)drawWithCodePoints:(NSArray<NSArray *> *)codePoints andSize:(CGFloat)size gradientColors:(NSArray<UIColor *> *)colors drawType:(kQRCodeDrawType)drawType gradientType:(kQRCodeGradientType)gradientType iconsPath:(NSString *)iconPath{
-    CGFloat scale = 3;
-    CGFloat imgWH = size * scale;
++(UIImage *)drawWithCodePoints:(NSArray<NSArray *> *)codePoints andSize:(CGFloat)size gradientColors:(NSArray<UIColor *> *)colors drawType:(kQRCodeDrawType)drawType gradientType:(kQRCodeGradientType)gradientType{
+    CGFloat imgWH = size;
     CGFloat delta = imgWH/codePoints.count;
     
     UIGraphicsBeginImageContext(CGSizeMake(imgWH, imgWH));
     CGContextRef ctx = UIGraphicsGetCurrentContext();
-    
-    NSArray<UIImage *> *icons = nil;
-    if (iconPath.length>0) {
-        NSURL *url = [NSURL fileURLWithPath:iconPath isDirectory:YES];
-        NSArray<NSString *> *resourceKeys = @[NSURLIsDirectoryKey];
-        NSDirectoryEnumerator *fileEnumerator = [[NSFileManager defaultManager] enumeratorAtURL:url includingPropertiesForKeys:resourceKeys options:NSDirectoryEnumerationSkipsHiddenFiles  errorHandler:NULL];
-        NSMutableArray<UIImage *> *iconsArrM = [NSMutableArray array];
-        for (NSURL *fileURL in fileEnumerator) {
-            @autoreleasepool {
-                NSData *data = [NSData dataWithContentsOfURL:fileURL];
-                UIImage *img = [UIImage imageWithData:data];
-                if (img) {
-                    [iconsArrM addObject:img];
-                }
-            }
-        }
-        icons = [iconsArrM copy];
-    }
-    
-    NSInteger iconIndex = -1;
     
     for (int indexY = 0; indexY < codePoints.count; indexY++) {
         for (int indexX = 0; indexX < codePoints[indexY].count; indexX++) {
             @autoreleasepool {
                 BOOL shouldDisplay = [codePoints[indexY][indexX] boolValue];
                 if (shouldDisplay) {
-                    switch (drawType) {
-                        case kQRCodeDrawTypeCircle:
-                        case kQRCodeDrawTypeSquare:
-                        {
-                            [self drawPointWithIndexX:indexX indexY:indexY delta:delta imgWH:imgWH colors:colors gradientType:gradientType drawType:drawType inContext:ctx];
-                        }
-                            break;
-                        case kQRCodeDrawTypeIcon:
-                        {
-                            NSInteger count = icons.count-2;
-                            if (iconIndex <= count) {
-                                iconIndex++;
-                            }
-                            else if(iconIndex==icons.count-1){
-                                iconIndex = 0;
-                            }
-                            
-                            [self drawPointWithIndexX:indexX indexY:indexY delta:delta icon:icons[iconIndex] inContext:ctx];
-                            
-                        }
-                            
-                        default:
-                            break;
-                    }
+                    [self drawPointWithIndexX:indexX indexY:indexY delta:delta imgWH:imgWH colors:colors gradientType:gradientType drawType:drawType inContext:ctx];
                 }
             }
         }
@@ -205,13 +182,6 @@ const CGFloat JPQRCodeDrawPointMargin = 2;
     UIGraphicsEndImageContext();
     
     return img;
-}
-
-+(void)drawPointWithIndexX:(CGFloat)indexX indexY:(CGFloat)indexY delta:(CGFloat)delta icon:(UIImage*)icon inContext:(CGContextRef)ctx{
-    CGContextSaveGState(ctx);
-    CGRect drawRect = CGRectMake(indexX*delta, indexY*delta, delta, delta);
-    [icon drawInRect:drawRect];
-    CGContextRestoreGState(ctx);
 }
 
 +(void)drawPointWithIndexX:(CGFloat)indexX indexY:(CGFloat)indexY delta:(CGFloat)delta imgWH:(CGFloat)imgWH colors:(NSArray<UIColor *> *)colors gradientType:(kQRCodeGradientType)gradientType drawType:(kQRCodeDrawType)drawType inContext:(CGContextRef)ctx{
@@ -231,7 +201,7 @@ const CGFloat JPQRCodeDrawPointMargin = 2;
     }
     NSArray<UIColor *> *gradientColors = [self getGradientColorsWithStratPoint:CGPointMake(indexX*delta, indexY*delta) andEndPoint:CGPointMake((indexX+1)*delta, (indexY+1)*delta) totalWid:imgWH BetweenColors:colors gradientType:gradientType];
     
-    [self drawLinearGradient:ctx path:bezierPath.CGPath startColor:[gradientColors firstObject].CGColor endColor:[gradientColors lastObject].CGColor];
+    [self drawLinearGradient:ctx path:bezierPath.CGPath startColor:[gradientColors firstObject].CGColor endColor:[gradientColors lastObject].CGColor gradientType:gradientType];
     CGContextSaveGState(ctx);
 }
 
@@ -249,7 +219,7 @@ const CGFloat JPQRCodeDrawPointMargin = 2;
     CGFloat red2 = components2[0];
     CGFloat green2 = components2[1];
     CGFloat blue2 = components2[2];
-
+    
     NSArray<UIColor *> *result = nil;
     switch (gradientType) {
         case kQRCodeGradientTypeHorizontal:
@@ -273,7 +243,6 @@ const CGFloat JPQRCodeDrawPointMargin = 2;
             
         case kQRCodeGradientTypeDiagonal:
         {
-            
             CGFloat startDelta = [self calculateTarHeiForPoint:startP] / (totalWid * totalWid);
             CGFloat endDelta = [self calculateTarHeiForPoint:endP] / (totalWid * totalWid);
             
@@ -305,19 +274,34 @@ const CGFloat JPQRCodeDrawPointMargin = 2;
     return cos(tarArcValue)*(pointX*pointX + pointY*pointY);
 }
 
-+(void)drawLinearGradient:(CGContextRef)context path:(CGPathRef)path startColor:(CGColorRef)startColor endColor:(CGColorRef)endColor{
++(void)drawLinearGradient:(CGContextRef)context path:(CGPathRef)path startColor:(CGColorRef)startColor endColor:(CGColorRef)endColor gradientType:(kQRCodeGradientType)gradientType{
     CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-    CGFloat locations[] = { 0.0, 1.0 };
+    CGFloat locations[] = {0.0, 1};
     
     NSArray *colors = @[(__bridge id) startColor, (__bridge id) endColor];
     
     CGGradientRef gradient = CGGradientCreateWithColors(colorSpace, (__bridge CFArrayRef) colors, locations);
     
     CGRect pathRect = CGPathGetBoundingBox(path);
+    CGPoint startPoint = CGPointZero;
+    CGPoint endPoint = CGPointZero;
     
-    //具体方向可根据需求修改
-    CGPoint startPoint = CGPointMake(CGRectGetMinX(pathRect), CGRectGetMidY(pathRect));
-    CGPoint endPoint = CGPointMake(CGRectGetMaxX(pathRect), CGRectGetMidY(pathRect));
+    switch (gradientType) {
+        case kQRCodeGradientTypeDiagonal:
+        {
+            startPoint = CGPointMake(CGRectGetMinX(pathRect), CGRectGetMinY(pathRect));
+            endPoint = CGPointMake(CGRectGetMaxX(pathRect), CGRectGetMaxY(pathRect));
+        }
+            break;
+        case kQRCodeGradientTypeHorizontal:
+        {
+            startPoint = CGPointMake(CGRectGetMinX(pathRect), CGRectGetMidY(pathRect));
+            endPoint = CGPointMake(CGRectGetMaxX(pathRect), CGRectGetMidY(pathRect));
+        }
+            break;
+        default:
+            break;
+    }
     
     CGContextSaveGState(context);
     CGContextAddPath(context, path);

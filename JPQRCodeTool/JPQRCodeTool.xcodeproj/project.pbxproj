@@ -7,8 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		48C3AF4C1E9252CF00DC2D0D /* Expression.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 48C3AF4B1E9252CF00DC2D0D /* Expression.bundle */; };
-		48C3AF4E1E925C5600DC2D0D /* morpheus.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 48C3AF4D1E925C5600DC2D0D /* morpheus.bundle */; };
 		48D093541E8672470073D750 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 48D093531E8672470073D750 /* main.m */; };
 		48D093571E8672470073D750 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 48D093561E8672470073D750 /* AppDelegate.m */; };
 		48D0935A1E8672470073D750 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 48D093591E8672470073D750 /* ViewController.m */; };
@@ -19,8 +17,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		48C3AF4B1E9252CF00DC2D0D /* Expression.bundle */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.plug-in"; path = Expression.bundle; sourceTree = "<group>"; };
-		48C3AF4D1E925C5600DC2D0D /* morpheus.bundle */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.plug-in"; path = morpheus.bundle; sourceTree = "<group>"; };
 		48D0934F1E8672470073D750 /* JPQRCodeTool.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = JPQRCodeTool.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		48D093531E8672470073D750 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		48D093551E8672470073D750 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
@@ -65,8 +61,6 @@
 		48D093511E8672470073D750 /* JPQRCodeTool */ = {
 			isa = PBXGroup;
 			children = (
-				48C3AF4D1E925C5600DC2D0D /* morpheus.bundle */,
-				48C3AF4B1E9252CF00DC2D0D /* Expression.bundle */,
 				48D093691E8672830073D750 /* JPQRCodeTool.h */,
 				48D0936A1E8672830073D750 /* JPQRCodeTool.m */,
 				48D093551E8672470073D750 /* AppDelegate.h */,
@@ -149,9 +143,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				48C3AF4E1E925C5600DC2D0D /* morpheus.bundle in Resources */,
 				48D093621E8672470073D750 /* LaunchScreen.storyboard in Resources */,
-				48C3AF4C1E9252CF00DC2D0D /* Expression.bundle in Resources */,
 				48D0935F1E8672470073D750 /* Assets.xcassets in Resources */,
 				48D0935D1E8672470073D750 /* Main.storyboard in Resources */,
 			);
@@ -288,7 +280,7 @@
 				DEVELOPMENT_TEAM = TBX22VE2Q6;
 				INFOPLIST_FILE = JPQRCodeTool/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = com.newpan.www.JPQRCodeTool;
+				PRODUCT_BUNDLE_IDENTIFIER = com.JPQRCoderTool.www;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -300,7 +292,7 @@
 				DEVELOPMENT_TEAM = TBX22VE2Q6;
 				INFOPLIST_FILE = JPQRCodeTool/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = com.newpan.www.JPQRCodeTool;
+				PRODUCT_BUNDLE_IDENTIFIER = com.JPQRCoderTool.www;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
