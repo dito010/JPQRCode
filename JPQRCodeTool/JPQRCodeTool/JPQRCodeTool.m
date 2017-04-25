@@ -11,13 +11,6 @@
 
 #import "JPQRCodeTool.h"
 
-struct JPPixel {
-    UInt8 red;
-    UInt8 green;
-    UInt8 blue;
-    UInt8 alpha;
-};
-
 const CGFloat JPQRCodeDrawPointMargin = 2;
 
 @implementation JPQRCodeTool
@@ -28,8 +21,7 @@ const CGFloat JPQRCodeDrawPointMargin = 2;
     
     @autoreleasepool {
         CIImage *originalImg = [self createOriginalCIImageWithString:str withCorrectionLevel:corLevel];
-        NSArray<NSArray *> *pixels = [self getPixelsWithCIImage:originalImg];
-        NSArray<NSArray *> *codePoints = [self handlePointsShouldDisplayCodeForArr:pixels];
+        NSArray<NSArray *> *codePoints = [self getPixelsWithCIImage:originalImg];
         
         CGFloat extent = originalImg.extent.size.width; // 对应纠错率二维码矩阵点数宽度
         CGFloat size = 0;
@@ -100,18 +92,32 @@ const CGFloat JPQRCodeDrawPointMargin = 2;
     return scaledImage;
 }
 
-// 将原始图片的所有点的色值保存到二维数组
+// 将原始图片的所有点的色值保存到二维数组.
 +(NSArray<NSArray *>*)getPixelsWithCIImage:(CIImage *)ciimg{
     NSMutableArray *pixels = [NSMutableArray array];
     
+    // 将系统生成的二维码从 `CIImage` 转成 `CGImageRef`.
     CGImageRef imageRef = [self convertCIImage2CGImageForCIImage:ciimg];
     CGFloat width = CGImageGetWidth(imageRef);
     CGFloat height = CGImageGetHeight(imageRef);
+    
+    // 创建一个颜色空间.
     CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+    
+    // 开辟一段 unsigned char 的存储空间，用 rawData 指向这段内存.
+    // 每个 RGBA 色值的范围是 0-255，所以刚好是一个 unsigned char 的存储大小.
+    // 每张图片有 height * width 个点，每个点有 RGBA 4个色值，所以刚好是 height * width * 4.
+    // 这段代码的意思是开辟了 height * width * 4 个 unsigned char 的存储大小.
     unsigned char *rawData = (unsigned char *)calloc(height * width * 4, sizeof(unsigned char));
+    
+    // 每个像素的大小是 4 字节.
     NSUInteger bytesPerPixel = 4;
+    // 每行字节数.
     NSUInteger bytesPerRow = width * bytesPerPixel;
+    // 一个字节8比特
     NSUInteger bitsPerComponent = 8;
+    
+    // 将系统的二维码图片和我们创建的 rawData 关联起来，这样我们就可以通过 rawData 拿到指定 pixel 的内存地址.
     CGContextRef context = CGBitmapContextCreate(rawData, width, height, bitsPerComponent, bytesPerRow, colorSpace, kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
     CGColorSpaceRelease(colorSpace);
     CGContextDrawImage(context, CGRectMake(0, 0, width, height), imageRef);
@@ -119,19 +125,15 @@ const CGFloat JPQRCodeDrawPointMargin = 2;
     for (int indexY = 0; indexY < height; indexY++) {
         NSMutableArray *tepArrM = [NSMutableArray array];
         for (int indexX = 0; indexX < width; indexX++) {
+            // 取出每个 pixel 的 RGBA 值，保存到矩阵中.
             @autoreleasepool {
                 NSUInteger byteIndex = bytesPerRow * indexY + indexX * bytesPerPixel;
-                CGFloat alpha = (CGFloat)rawData[byteIndex + 3];
                 CGFloat red = (CGFloat)rawData[byteIndex];
                 CGFloat green = (CGFloat)rawData[byteIndex + 1];
                 CGFloat blue = (CGFloat)rawData[byteIndex + 2];
-                struct JPPixel pixel;
-                pixel.alpha = alpha;
-                pixel.red = red;
-                pixel.green = green;
-                pixel.blue = blue;
-                NSValue *value = [NSValue valueWithBytes:&pixel objCType:@encode(struct JPPixel)];
-                [tepArrM addObject:value];
+                
+                BOOL shouldDisplay = red == 0 && green == 0 && blue == 0;
+                [tepArrM addObject:@(shouldDisplay)];
                 byteIndex += bytesPerPixel;
             }
         }
@@ -139,25 +141,6 @@ const CGFloat JPQRCodeDrawPointMargin = 2;
     }
     free(rawData);
     return [pixels copy];
-}
-
-// 判断每个点是否有颜色色值
-+(NSArray<NSArray *>*)handlePointsShouldDisplayCodeForArr:(NSArray<NSArray *>*)pixels{
-    NSMutableArray *results = [NSMutableArray arrayWithCapacity:pixels.count];
-    for (int indexY = 0; indexY < pixels.count; indexY++) {
-        NSMutableArray *tepArrM = [NSMutableArray arrayWithCapacity:pixels[indexY].count];
-        for (int indexX = 0; indexX < pixels[indexY].count; indexX++) {
-            @autoreleasepool {
-                NSValue *value = pixels[indexY][indexX];
-                struct JPPixel pixel;
-                [value getValue:&pixel];
-                BOOL shouldDisplay = pixel.red == 0 && pixel.green == 0 && pixel.blue == 0;
-                [tepArrM addObject:@(shouldDisplay)];
-            }
-        }
-        [results addObject:[tepArrM copy]];
-    }
-    return [results copy];
 }
 
 +(UIImage *)drawWithCodePoints:(NSArray<NSArray *> *)codePoints andSize:(CGFloat)size gradientColors:(NSArray<UIColor *> *)colors drawType:(kQRCodeDrawType)drawType gradientType:(kQRCodeGradientType)gradientType{
